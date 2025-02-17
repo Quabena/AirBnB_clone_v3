@@ -1,13 +1,13 @@
 #!/usr/bin/python3
 """
-Initialization of API Blueprint.
+Initialization file for the API views module.
+This file imports all the view modules to register their routes with the Flask app.
 """
 
 from flask import Blueprint
 
-app_views = Blueprint('app_views', __name__, url_prefix="/api/v1")
+app_views = Blueprint('/api/v1', __name__, url_prefix="/api/v1")
 
-# Importing all view modules
 from api.v1.views.index import *
 from api.v1.views.states import *
 from api.v1.views.amenities import *

@@ -1,45 +1,60 @@
 #!/usr/bin/python3
 """
-Route for handling the link between Place and Amenity objects.
-Supports listing, linking, and unlinking amenities to a place.
+Route for handling the linking between Place and Amenity objects.
+This module provides endpoints to list, link, and unlink Amenity objects
+to/from a Place object, depending on the storage type (DBStorage or FileStorage).
 """
 
 from flask import jsonify, abort
 from os import getenv
-from api.v1.views import app_views
-from models import storage
-from models.place import Place
-from models.amenity import Amenity
+
+from api.v1.views import app_views, storage
 
 
 @app_views.route("/places/<place_id>/amenities", methods=["GET"], strict_slashes=False)
-def get_place_amenities(place_id):
+def amenity_by_place(place_id):
     """
-    Retrieves the list of all Amenity objects of a given Place.
-    :param place_id: ID of the Place
-    :return: JSON list of all linked Amenity objects
+    Retrieves the list of all Amenity objects associated with a Place.
+
+    Args:
+        place_id (str): The ID of the Place object.
+
+    Returns:
+        JSON: A list of Amenity objects in JSON format.
+        Error: 404 if the Place object is not found.
     """
-    place = storage.get(Place, place_id)
+    place = storage.get("Place", str(place_id))
+
     if place is None:
         abort(404)
 
-    amenities = [amenity.to_dict() for amenity in place.amenities]
+    if getenv("HBNB_TYPE_STORAGE") == "db":
+        amenities = [amenity.to_dict() for amenity in place.amenities]
+    else:
+        amenities = [storage.get("Amenity", amenity_id).to_dict() for amenity_id in place.amenity_ids]
+
     return jsonify(amenities)
 
 
 @app_views.route("/places/<place_id>/amenities/<amenity_id>", methods=["DELETE"], strict_slashes=False)
-def delete_place_amenity(place_id, amenity_id):
+def unlink_amenity_from_place(place_id, amenity_id):
     """
-    Deletes an Amenity object from a Place.
-    :param place_id: ID of the Place
-    :param amenity_id: ID of the Amenity
-    :return: Empty JSON response with status code 200
+    Unlinks an Amenity object from a Place object.
+
+    Args:
+        place_id (str): The ID of the Place object.
+        amenity_id (str): The ID of the Amenity object.
+
+    Returns:
+        JSON: An empty dictionary with status code 200.
+        Error: 404 if the Place or Amenity object is not found,
+               or if the Amenity is not linked to the Place.
     """
-    place = storage.get(Place, place_id)
+    place = storage.get("Place", str(place_id))
     if place is None:
         abort(404)
 
-    amenity = storage.get(Amenity, amenity_id)
+    amenity = storage.get("Amenity", str(amenity_id))
     if amenity is None:
         abort(404)
 
@@ -52,23 +67,30 @@ def delete_place_amenity(place_id, amenity_id):
             abort(404)
         place.amenity_ids.remove(amenity_id)
 
-    storage.save()
+    place.save()
     return jsonify({}), 200
 
 
 @app_views.route("/places/<place_id>/amenities/<amenity_id>", methods=["POST"], strict_slashes=False)
-def link_place_amenity(place_id, amenity_id):
+def link_amenity_to_place(place_id, amenity_id):
     """
-    Links an Amenity object to a Place.
-    :param place_id: ID of the Place
-    :param amenity_id: ID of the Amenity
-    :return: JSON representation of the linked Amenity with status 200 or 201
+    Links an Amenity object to a Place object.
+
+    Args:
+        place_id (str): The ID of the Place object.
+        amenity_id (str): The ID of the Amenity object.
+
+    Returns:
+        JSON: The linked Amenity object in JSON format.
+        Error: 404 if the Place or Amenity object is not found.
+               Returns the Amenity object with status code 200 if already linked.
+               Returns the Amenity object with status code 201 if newly linked.
     """
-    place = storage.get(Place, place_id)
+    place = storage.get("Place", str(place_id))
     if place is None:
         abort(404)
 
-    amenity = storage.get(Amenity, amenity_id)
+    amenity = storage.get("Amenity", str(amenity_id))
     if amenity is None:
         abort(404)
 
@@ -81,6 +103,5 @@ def link_place_amenity(place_id, amenity_id):
             return jsonify(amenity.to_dict()), 200
         place.amenity_ids.append(amenity_id)
 
-    storage.save()
+    place.save()
     return jsonify(amenity.to_dict()), 201
-
